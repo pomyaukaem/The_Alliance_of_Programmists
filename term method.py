@@ -115,8 +115,9 @@ def main_term_method(sents, ends):
         if freq_dict[lemma]/lenth_of_the_text >= 1/60 and lemma != 'стоп-слово!!!':
             log_freq_dict[lemma] = math.log(freq_dict[lemma], 2) # С основанием тоже поработать!!!
     # Ещё раз идём по словам предложения и начисляем логарифмические очки за слова
+    list_of_scores = []
     for sent in sents:
-        sent[1]['term_method'] = 0
+        list_of_scores.append(0)
         dirty_words = sent[0].split(' ')
         for dw in dirty_words:
             lenth_of_the_text += 1
@@ -124,6 +125,8 @@ def main_term_method(sents, ends):
             for freq_w in log_freq_dict:
                 if term_method_lemmatizer(cw, ends, stopwords) == freq_w:
                     # В тестовом случае прошли 12/20 предложений
-                    sent[1]['term_method'] += log_freq_dict[freq_w]
+                    list_of_scores[-1] += log_freq_dict[freq_w]
+    return list_of_scores
+
 
 main_term_method(text, endings)
