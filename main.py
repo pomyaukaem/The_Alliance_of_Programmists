@@ -4,18 +4,14 @@ snowball = SnowballStemmer("russian")
 from collections import defaultdict
 import libpdf
 import re
-import pprint
 import math
-import statistics
 import pandas as pd
 
 filename = input('Введите путь к вашему pdf-файлу:')
-#filename = "богуславский.pdf" # filename тут просто такой вот пока
 file_content = libpdf.load(filename) # читаем pdf
 
 pars = file_content.flattened.paragraphs # достаём из него параграфы
 tabs = file_content.flattened.tables
-# Разобраться с таблицами!!!
 def cell_cleaner(cell):
     to_delete = 'Cell\(.+?\)\s'
     new = re.sub(to_delete, '', str(cell))
@@ -422,7 +418,7 @@ def term_method_lemmatizer(word, stops):
     # Проверяем, что перед нами русское слово
     rus_let = '[а-я]+'
     if re.match(rus_let, word) is None:
-        return word # Не уверена в этом решении
+        return word 
     # Проверяем, что перед нами не стоп-слово
     if word in stops:
             return 'стоп-слово!!!'
@@ -504,7 +500,6 @@ def main_term_method(pandas_table):
     list_of_statuses = pandas_table.loc[:,'status']
     tm_scores = term_method(list(list_of_sentences), list(list_of_statuses))
     pandas_table['term_method'] = tm_scores
-    # dtype=pd.StringDtype index=pandas_table.index pd.Series(tm_scores, dtype='float')
     return pandas_table
 
 
