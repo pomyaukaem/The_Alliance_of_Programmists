@@ -1,5 +1,4 @@
-!pip install libpdf
-!pip install nltk
+#библиотеки libpdf и nltk должны быть установлены на компьютер через pip install
 from nltk.stem.snowball import SnowballStemmer
 snowball = SnowballStemmer("russian")
 from collections import defaultdict
@@ -7,10 +6,11 @@ import libpdf
 import re
 import pprint
 import math
+import statistics
 import pandas as pd
 
-
-filename = "богуславский.pdf" # filename тут просто такой вот пока
+filename = input('Введите путь к вашему pdf-файлу:')
+#filename = "богуславский.pdf" # filename тут просто такой вот пока
 file_content = libpdf.load(filename) # читаем pdf
 
 pars = file_content.flattened.paragraphs # достаём из него параграфы
@@ -84,7 +84,6 @@ def text_roast(paragraphs):
                     descent.append([par, 'footnote'])
                 else:
                     descent.append([par, 'text'])
-    #pprint.pprint(descent)
     return descent
 
 
@@ -212,12 +211,6 @@ final_paragraphs, final_footnotes = text_fixer(roasted_text)
 for fp in final_paragraphs:
     fp[0] = re.sub('  ', ' ', fp[0])
     
-
-
-
-
-
-
 # ПРЕДЛОЖЕНИЗАТОР
 
 def sentence_border_searcher(text_read):
@@ -338,12 +331,10 @@ def main_sentencizer(parag_list):
     return panda
 
 main_results = main_sentencizer(final_paragraphs)
-#print(main_results.loc[:,'sentences'])
 
 
-
-
-
+#PM SLM методы
+#-- проверять колонку сентенсес. не брать во внимание пустые ячейки/состоящие из 1-2-3 слов.
 
 # POSITION METNOD (pandas)
 #dic - прототипический датафрейм на вход с двумя столбцами: предложениями и их статусом,
@@ -355,7 +346,6 @@ def position_method(panda_main_res):
     headcount = 0
     h1 = 0
     h2 = 0
-    hunl = 0 #второй с конца заголовок. кажется, не нужен: в заключение попадают те предложения, индексы которых больше индекса hl - последнего заголовка.
     hlast = 0
     for i in range(len(panda_main_res.index)):
       if panda_main_res.loc[i]['status'] == 'header':
@@ -364,14 +354,17 @@ def position_method(panda_main_res):
         headcount += 1
         if headcount == 2:
             h2 = i
-        hunl = hlast
         hlast = i 
     ufo = []
     for i in range(len(panda_main_res.index)):
         points = 0
+        sent = panda_main_res.loc[i]['sentences']
+        words_list = sent.split() #чтобы потом узнать, сколько слов в предложении. где меньше 4 - 0 очков
         st = panda_main_res.loc[i]['status'] #это status = position конкретного предложения
         if st == 'name' or st == 'example' or st == 'page' or st == 'footnote': #не хотим давать очки названию с автором, примерам, номерам страниц и сноскам. вообще никаким.
   #нужно подумать, нет ли для этого условия лучшего места
+            ufo.append(points)
+        elif len(words_list) < 4:
             ufo.append(points)
         else:
             if (i > h1 and i < h2) or (i > hlast): #предложения вступления и заключения
@@ -389,14 +382,42 @@ def position_method(panda_main_res):
     panda_main_res['position_method'] = ufo #добавляем колонку с баллами в датафрейм
     return panda_main_res
 
-
-
+#SENTENCE LENGTH METHOD - в зависимости от длины предложения относительно средней длины предложений в тексте
+def sentence_length_method(st_data):
+    words_total = 0
+    for i in range(len(st_data.index)):
+      sent = st_data.loc[i]['sentences']
+      words_list = sent.split()
+      words_total += len(words_list)
+    average_len = int(round(words_total / len(st_data.index),0)) #считаем среднюю длину предложений
+#начинаем давать очки предложениям. 3 - при разнице не более чем на 15% от average_len
+#2 - не более чем на 30%, 1 - не более чем на 50%, остальное 0 и не учитываем
+#в списке ufo_too будем хранить количество баллов, набранное предложением
+    ufo_too = []
+    for i in range(len(st_data.index)):
+      sent = st_data.loc[i]['sentences']
+      words_list = sent.split()
+      if len(words_list) < 4:
+          ufo_too.append(0)
+      else:
+          if st_data.loc[i]['status'] == 'header' or st_data.loc[i]['status'] == 'example' or st_data.loc[i]['status'] == 'foornote' or st_data.loc[i]['status'] == 'page' or st_data.loc[i]['status'] == 'name':
+              ufo_too.append(0) 
+          else:
+              if len(words_list) > int(round(average_len*0.85,0)) and len(words_list) < int(round(average_len*1.15,0)):
+                  ufo_too.append(3)
+              elif len(words_list) > int(round(average_len*0.7,0)) and len(words_list) < int(round(average_len*1.3,0)):
+                  ufo_too.append(2)
+              elif len(words_list) > int(round(average_len*0.5,0)) and len(words_list) < int(round(average_len*1.5,0)):
+                  ufo_too.append(1)
+              else:
+                  ufo_too.append(0)
+    st_data['sentence_length_method'] = ufo_too #добавляем колонку с баллами в датафрейм
+    return st_data
 
 
 
 # TERM BASED METHOD
-# Исправить лемматизацию!!!!!
-def term_method_lemmatizer(word, flex, stops):
+def term_method_lemmatizer(word, stops):
     word = word.lower()
     # Проверяем, что перед нами русское слово
     rus_let = '[а-я]+'
@@ -405,93 +426,90 @@ def term_method_lemmatizer(word, flex, stops):
     # Проверяем, что перед нами не стоп-слово
     if word in stops:
             return 'стоп-слово!!!'
-    # Отсекаем постфиксы
-    vowels = 'уеоэаыяию'
-    if word.endswith('ся'):
-        word = word[0:-2]
-        # этот алгоритм см. ниже
-        for f in flex:
-            if word.endswith(f):
-                return(word[:-len(f)]+'_'+'ся')
-    if word.endswith('сь') and word[-3] in vowels:
-        word = word[0:-2]
-        # этот алгоритм см. ниже
-        for f in flex:
-            if word.endswith(f):
-                return(word[:-len(f)]+'_'+'ся')
-    # Начинаем поиск окончаний с самых длинных паттернов
-    for f in flex:
-        if word.endswith(f):
-            return(word[:-len(f)])
-    # Если окончание ненашлось
-    return word
+    return snowball.stem(word)
 
-def term_method(sents, ends):
+def term_method(sents, stats):
     # Создаём словарь вида (слово, ч.р.):кол-во_употреблений
     # Если у слова находится окончание, то в словаре оно хранится
     # без окончания, иначе возвращается как было.
     freq_dict = defaultdict(int)
     lenth_of_the_text= 0
-    stop_words = ['и', 'в', 'во', 'не', 'что', 'он', 'на', 'я', 'с', 'со', 'как', 'а', 'то', 'все', 'она',
-                  'так', 'его', 'но', 'да', 'ты', 'к', 'у', 'же', 'вы', 'за', 'бы', 'по', 'только', 'ее',
-                  'мне', 'было', 'вот', 'от', 'меня', 'еще', 'нет', 'о', 'из', 'ему', 'теперь', 'когда',
-                  'даже', 'ну', 'вдруг', 'ли', 'если', 'уже', 'или', 'ни', 'быть', 'был', 'него', 'до',
-                  'вас', 'нибудь', 'опять', 'уж', 'вам', 'ведь', 'там', 'потом', 'себя', 'ничего', 'ей',
-                  'может', 'они', 'тут', 'где', 'есть', 'надо', 'ней', 'для', 'мы', 'тебя', 'их', 'чем',
-                  'была', 'сам', 'чтоб', 'без', 'будто', 'чего', 'раз', 'тоже', 'себе', 'под', 'будет', 'тебе',
-                  'ж', 'тогда', 'кто', 'этот', 'того', 'потому', 'этого', 'какой', 'совсем', 'ним', 'здесь',
-                  'этом', 'один', 'почти', 'мой', 'тем', 'чтобы', 'нее', 'сейчас', 'были', 'куда', 'зачем',
-                  'всех', 'никогда', 'можно', 'при', 'наконец', 'два', 'об', 'другой', 'хоть', 'после', 'это',
-                  'над', 'больше', 'тот', 'через', 'эти', 'нас', 'про', 'всего', 'них', 'какая', 'много',
-                  'разве', 'три', 'эту', 'моя', 'впрочем', 'хорошо', 'свою', 'этой', 'перед', 'иногда', 'таким',
-                  'лучше', 'чуть', 'том', 'нельзя', 'такой', 'им', 'более', 'всегда', 'конечно', 'всю', 'между']
+    stop_words = ['без', 'иногда', 'эти', 'нас', 'нами', 'еще', 'к', 'какого', 'было', 'впрочем', 'этим', 'этого', 'а', 'может', 'такого', 
+                  'нее', 'два', 'некоторых', 'им', 'разве', 'такая', 'некоторыми', ' какой', 'намного', 'перед', 'словно', 'нет', 'вы', 
+                  'под', 'него', 'чем', 'кому', 'не', 'который', 'своих', 'пусть', 'я', 'от', 'была', 'нашем', 'раз', 'чём', 'чтоб', 
+                  'своим', 'которые', 'во', 'никогда', 'якобы', 'либо', 'зачем', 'ровно', 'нельзя', 'для', 'себе', 'таком', 'своей', 
+                  'каких', 'о', 'этом', 'никто', 'только', 'ещё', 'причем', 'даже', 'теперь', 'том', 'другой', 'некоторый', 'вам', 'этот', 
+                  ' пускай', 'что', 'после', 'можно', 'ими', 'наконец', 'из', 'вас', 'эту', 'которых', 'всю', 'между', 'через', 'собой',
+                  'нашим', 'будет', 'меня', 'своём', 'были', 'которое', 'ж', 'каждая', 'которая', 'ее', 'над', 'своего', 'наш', 'об', 
+                  'всегда', 'ними', 'неких', 'этому', 'таких', 'едва', 'кем', 'несмотря', 'эта', 'таким', 'надо', 'три', 'некими', 'из-за',
+                  'если', 'нашего', 'такими', 'они', 'нам', 'всем', 'которым', 'с', 'вот', 'же', 'чего', 'какому', 'такое', 'такие', 
+                  'каждой', 'при', 'уже', 'бы', 'которой', 'некий', 'себя', 'много', 'некоторые', 'мы', 'был', 'ним', 'ком', 'почти', 
+                  'итак', 'всеми', 'свои', 'каким', 'чуть', 'да', 'нескольких', 'тот', 'каждого', 'тем', 'хорошо', 'затем', 'лишь', 'в', 
+                  'по', 'их', 'которого', 'до', 'почему', 'ну', 'ней', 'них', 'своими', 'нему', 'которыми', 'ему', 'это', 'откуда', 'своем', 
+                  'её', ' кто', 'другие', 'мне', 'ни', 'он', 'свой', 'тогда', 'зато', 'такой', 'хоть', 'того', 'ко', ' как', 'или', 
+                  'вами', 'тоже', 'оно', 'быть', 'ли', 'нём', 'притом', 'сейчас', 'этих', 'никого', 'которому', 'у', 'за', 'все', 'неё',
+                  'теми', 'вроде', 'поскольку', 'тому', 'ничего', 'всё', 'вдруг', 'то', 'будто', 'ей', 'на', 'и', 'хотя', 'ничто', 'со', 
+                  'конечно', 'про', 'лучше', 'какие', 'так', 'но', 'один', 'своему', 'этими', 'есть', 'этой', 'некие', 'всех', 'чему', 
+                  'она', 'свою', 'чтобы', 'кого', 'пока', 'также', 'несколько', 'его', 'как', 'каждому', 'каждый', 'когда', 'точно',
+                  'какая', 'своя', 'имеет']
     # Вычленяем из текста слова, очищаем от пунктуации, отправляем
     # на лемматизацию
+    sent_index = 0
     for sent in sents:
-        dirty_words = sent.split(' ')
-        for dw in dirty_words:
-            lenth_of_the_text += 1
-            cw = dw.strip('—«»\n!?,.;:/\\()\*][{}|%^\"\'’')
-            freq_dict[term_method_lemmatizer(cw, ends, stop_words)] += 1
-
+        if stats[sent_index] == 'text':
+            dirty_words = sent.split(' ')
+            for dw in dirty_words:
+                lenth_of_the_text += 1
+                cw = dw.strip('—«»\n!?,.;:/\\()\*][{}|%^\"\'’')
+                freq_dict[term_method_lemmatizer(cw, stop_words)] += 1
+        sent_index += 1
+      
     # САМОЕ ГЛАВНОЕ: отбор слов, которые мы считаем ключевыми
     log_freq_dict = {}
     for lemma in list(freq_dict):
-        if freq_dict[lemma]/lenth_of_the_text >= 1/400 and lemma != 'стоп-слово!!!' and len(lemma) > 1:
-            print(lemma)
-            log_freq_dict[lemma] = math.log(freq_dict[lemma], 2) # С основанием тоже поработать!!!
+        if freq_dict[lemma]/lenth_of_the_text >= 10/lenth_of_the_text and lemma != 'стоп-слово!!!' and len(lemma) > 1:
+            eng_or_num = False
+            engnum = '1234567890qwertyuioplkjhgfdsazxcvbnm'
+            log_base = lenth_of_the_text // 100
+            for letter in lemma:
+                if letter in engnum:
+                    eng_or_num = True
+            if eng_or_num is False:
+                log_freq_dict[lemma] = math.log(freq_dict[lemma], log_base)
     # Ещё раз идём по словам предложения и начисляем логарифмические очки за слова
     list_of_scores = []
+    sent_index = 0
     for sent in sents:
-        list_of_scores.append(0)
-        dirty_words = sent.split(' ')
-        for dw in dirty_words:
-            lenth_of_the_text += 1
-            cw = dw.strip('—«»\n!?,.;:/\\()\*][{}|%^\"\' ')
-            for freq_w in log_freq_dict:
-                if term_method_lemmatizer(cw, ends, stop_words) == freq_w:
-                    list_of_scores[-1] += log_freq_dict[freq_w]
+        score = 0
+        if stats[sent_index] == 'text':
+            dirty_words = sent.split(' ')
+            for dw in dirty_words:
+                cw = dw.strip('—«»\n!?,.;:/\\()\*][{}|%^\"\' ')
+                for freq_w in log_freq_dict:
+                    if snowball.stem(cw) == freq_w:
+                        score += log_freq_dict[freq_w]
+        if score < 1 and score != 0:
+            score = 1
+        elif score > 3:
+            score = 3
+        else:
+            score = round(score)
+        list_of_scores.append(score)
+        sent_index += 1
     return list_of_scores
 
 def main_term_method(pandas_table):
     # Эта функция взаимодействует с пандасом и правильно применяет term_method
-    endings = ['а', 'у', 'ом', 'е', 'ы', 'ов', 'ам', 'ами', 'ах', 'ы', 'ой', 'о',
-           'ь', 'я', 'ю', 'ем', 'и', 'ей', 'ями', 'ях', 'й', 'ёв', 'ью',
-           'ый', 'ого', 'ому', 'ым', 'ом', 'ая', 'ой', 'ое', 'ий', 'его', 'ему',
-           'им', 'ем', 'яя', 'ее', 'ые', 'ых', 'ым', 'ыми', 'ие', 'их', 'ую', 'юю',
-           'еть', 'ить', 'ять', 'ать', 'ите', 'ешь', 'ишь', 'ете', 'ет', 'ит',
-           'ют', 'ят', 'ут', 'ат', 'л', 'ла']
-    endings = sorted(endings, key = lambda x: (len(x), x), reverse = True)
     list_of_sentences = pandas_table.loc[:,'sentences']
-    tm_scores = term_method(list(list_of_sentences), endings)
+    list_of_statuses = pandas_table.loc[:,'status']
+    tm_scores = term_method(list(list_of_sentences), list(list_of_statuses))
     pandas_table['term_method'] = tm_scores
     # dtype=pd.StringDtype index=pandas_table.index pd.Series(tm_scores, dtype='float')
-    
     return pandas_table
 
 
+
 # CUE WORDS METHOD
-#in process
 def main_cue_words_method(panda_main_res):
     list_ofcuewords = {('следовательно', 'примечательно', 'отметим', 'отсюда вытекает',
 'разумеется', 'дело в том', 'наиболее', 'видно из примеров', 'в то же время',
@@ -508,10 +526,58 @@ def main_cue_words_method(panda_main_res):
     panda_main_res['cue_words_method'] = list_of_scores
     return panda_main_res
 
-
-
 main_results = main_term_method(main_results)
 main_results = position_method(main_results)
+main_results = sentence_length_method(main_results)
 main_results = main_cue_words_method(main_results)
+
+#считаем сумму очков по каждому методу, добавляя в новую колонку total_score в общем датафрейме
+total = []
+for i in range(len(main_results.index)):
+  tm = main_results.loc[i]['term_method']
+  pm = main_results.loc[i]['position_method']
+  sm = main_results.loc[i]['sentence_length_method']
+  cm = main_results.loc[i]['cue_words_method']
+  if main_results.loc[i]['status'] == 'header' or main_results.loc[i]['status'] == 'example':
+      total.append(0)
+  else:
+      if cm != 0: #если cue words method дал баллы, в итоге получим сумму баллов за все методы
+          total.append(tm + pm + sm + cm)
+      else: #sorry not sorry предложения набравшие 0 по cue words и 0 по 2+ остальным методам тоже получат 0 в итоге
+          if ((tm == pm or tm == sm) and tm == 0) or ((pm == tm or pm == sm) and pm == 0) or ((sm == pm or sm == tm) and sm == 0): #выглядит не оч лаконично но должно работать!
+              total.append(0)
+          else:
+              total.append(tm + pm + sm + cm)
+main_results['total_score'] = total
 main_results
 
+#создаем тхт-файл для латеха
+
+output_file_name = input('Введите имя файла, который вы хотите получить:')
+
+with open(output_file_name+'.txt', "w", encoding="utf-8") as output_file:
+    output_file.write('\\documentclass{article}\n\\usepackage[russian]{babel}')
+    output_file.write('\n\\usepackage[dvipsnames]{xcolor}\n\\usepackage[utf8]{inputenc}')
+    output_file.write('\n\\begin{document}')
+    output_file.write('\n\\definecolor{medium}{RGB}{150, 150, 150}')
+    output_file.write('\n\\definecolor{light}{RGB}{205, 205, 205}')
+    for i in range(len(main_results.index)):
+        if main_results['status'][i] == 'redline':
+            output_file.write('\n\n')
+        if main_results['total_score'][i] != 0:    
+            if main_results['cue_words_method'][i] == 0:
+                if main_results['term_method'][i] != 0 and main_results['position_method'][i] != 0 and main_results['sentence_length_method'][i] != 0:
+                    output_file.write(main_results['sentences'][i])
+                elif main_results['term_method'][i] == 0 and main_results['position_method'][i] != 0 and main_results['sentence_length_method'][i] != 0:
+                    output_file.write(' {\\textcolor{medium}{'+main_results['sentences'][i]+'}}')
+                elif main_results['term_method'][i] != 0 and main_results['position_method'][i] == 0 and main_results['sentence_length_method'][i] != 0:
+                    output_file.write(' {\\textcolor{medium}{'+main_results['sentences'][i]+'}}')
+                elif main_results['term_method'][i] != 0 and main_results['position_method'][i] != 0 and main_results['sentence_length_method'][i] == 0:
+                    output_file.write(' {\\textcolor{medium}{'+main_results['sentences'][i]+'}}')
+            else:
+                output_file.write(main_results['sentences'][i])  
+        else:
+            output_file.write(' {\\textcolor{light}{'+main_results['sentences'][i]+'}}')
+    for note in final_footnotes:
+      output_file.write(note)
+    output_file.write('\\end{document}')
