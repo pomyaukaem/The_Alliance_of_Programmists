@@ -329,9 +329,7 @@ def main_sentencizer(parag_list):
 main_results = main_sentencizer(final_paragraphs)
 
 
-
 # POSITION METNOD
-
 def position_method(panda_main_res):
 #ищем индексы первого, второго и последнего заголовков статьи
     headcount = 0
@@ -370,6 +368,7 @@ def position_method(panda_main_res):
                 ufo.append(points)
     panda_main_res['position_method'] = ufo 
     return panda_main_res
+
 
 #SENTENCE LENGTH METHOD
 def sentence_length_method(st_data):
