@@ -352,8 +352,7 @@ def position_method(panda_main_res):
         points = 0
         sent = panda_main_res.loc[i]['sentences']
         words_list = sent.split() #чтобы не давать очков предложениям с менее, чем 4 словами
-        st = panda_main_res.loc[i]['status']
-        if st == 'name' or st == 'example':
+        if panda_main_res.loc[i]['status'] == 'header' or panda_main_res.loc[i]['status'] == 'example':
             ufo.append(points)
         elif len(words_list) < 4:
             ufo.append(points)
@@ -364,7 +363,7 @@ def position_method(panda_main_res):
                 if i != 0:
                     if panda_main_res.loc[i-1]['status'] == 'header' or panda_main_res.loc[i+1]['status'] == 'header': #предложения-начала и концы разделов
                         points += 1
-                if st == 'redline' or panda_main_res.loc[i+1]['status'] == 'redline': #предложения-начала и концы абзацев
+                if panda_main_res.loc[i]['status'] == 'redline' or panda_main_res.loc[i+1]['status'] == 'redline': #предложения-начала и концы абзацев
                     points += 1
                 ufo.append(points)
             else:
