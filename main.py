@@ -329,16 +329,12 @@ def main_sentencizer(parag_list):
 main_results = main_sentencizer(final_paragraphs)
 
 
-#PM SLM методы
-#-- проверять колонку сентенсес. не брать во внимание пустые ячейки/состоящие из 1-2-3 слов.
 
-# POSITION METNOD (pandas)
+# POSITION METNOD
 #dic - прототипический датафрейм на вход с двумя столбцами: предложениями и их статусом,
 #ufo - список из очков, которые набрали предложения
 def position_method(panda_main_res):
-#диапазон между первым и вторым хедером вступление
-#между предпоследним и последним заключение OBJECTION!! так-то после последнего до конца.
-#ищем их индексы 
+#ищем индексы первого, второго и последнего заголовков статьи
     headcount = 0
     h1 = 0
     h2 = 0
@@ -355,10 +351,9 @@ def position_method(panda_main_res):
     for i in range(len(panda_main_res.index)):
         points = 0
         sent = panda_main_res.loc[i]['sentences']
-        words_list = sent.split() #чтобы потом узнать, сколько слов в предложении. где меньше 4 - 0 очков
-        st = panda_main_res.loc[i]['status'] #это status = position конкретного предложения
-        if st == 'name' or st == 'example' or st == 'page' or st == 'footnote': #не хотим давать очки названию с автором, примерам, номерам страниц и сноскам. вообще никаким.
-  #нужно подумать, нет ли для этого условия лучшего места
+        words_list = sent.split() #чтобы не давать очков предложениям с менее, чем 4 словами
+        st = panda_main_res.loc[i]['status']
+        if st == 'name' or st == 'example':
             ufo.append(points)
         elif len(words_list) < 4:
             ufo.append(points)
@@ -367,18 +362,18 @@ def position_method(panda_main_res):
                 points += 1
             if i < len(panda_main_res.index)-1:
                 if i != 0:
-                    if panda_main_res.loc[i-1]['status'] == 'header' or panda_main_res.loc[i+1]['status'] == 'header': #предложения-начала и концы разделов.
+                    if panda_main_res.loc[i-1]['status'] == 'header' or panda_main_res.loc[i+1]['status'] == 'header': #предложения-начала и концы разделов
                         points += 1
-                if st == 'redline' or panda_main_res.loc[i+1]['status'] == 'redline': #предложения-начала и концы абзацев. самое последнее посчитаем в конце.
+                if st == 'redline' or panda_main_res.loc[i+1]['status'] == 'redline': #предложения-начала и концы абзацев
                     points += 1
                 ufo.append(points)
-            else: #тут мы даем балл по умолчанию последнему предложению абзаца. вопрос: а надо ли, если выше (строка 37) уже даем баллы всем предложениям заключения.
+            else:
                 points += 1
                 ufo.append(points)
-    panda_main_res['position_method'] = ufo #добавляем колонку с баллами в датафрейм
+    panda_main_res['position_method'] = ufo 
     return panda_main_res
 
-#SENTENCE LENGTH METHOD - в зависимости от длины предложения относительно средней длины предложений в тексте
+#SENTENCE LENGTH METHOD
 def sentence_length_method(st_data):
     words_total = 0
     for i in range(len(st_data.index)):
