@@ -380,10 +380,9 @@ def sentence_length_method(st_data):
       sent = st_data.loc[i]['sentences']
       words_list = sent.split()
       words_total += len(words_list)
-    average_len = int(round(words_total / len(st_data.index),0)) #считаем среднюю длину предложений
-#начинаем давать очки предложениям. 3 - при разнице не более чем на 15% от average_len
-#2 - не более чем на 30%, 1 - не более чем на 50%, остальное 0 и не учитываем
-#в списке ufo_too будем хранить количество баллов, набранное предложением
+    average_len = int(round(words_total / len(st_data.index),0)) #средняя длина предложений
+#предложение получает 3 очка при отличии не более чем на 15% от average_len
+#2 - не более чем на 30%, 1 - не более чем на 50%, остальные - 0
     ufo_too = []
     for i in range(len(st_data.index)):
       sent = st_data.loc[i]['sentences']
@@ -391,7 +390,7 @@ def sentence_length_method(st_data):
       if len(words_list) < 4:
           ufo_too.append(0)
       else:
-          if st_data.loc[i]['status'] == 'header' or st_data.loc[i]['status'] == 'example' or st_data.loc[i]['status'] == 'foornote' or st_data.loc[i]['status'] == 'page' or st_data.loc[i]['status'] == 'name':
+          if st_data.loc[i]['status'] == 'header' or st_data.loc[i]['status'] == 'example':
               ufo_too.append(0) 
           else:
               if len(words_list) > int(round(average_len*0.85,0)) and len(words_list) < int(round(average_len*1.15,0)):
@@ -402,9 +401,8 @@ def sentence_length_method(st_data):
                   ufo_too.append(1)
               else:
                   ufo_too.append(0)
-    st_data['sentence_length_method'] = ufo_too #добавляем колонку с баллами в датафрейм
+    st_data['sentence_length_method'] = ufo_too
     return st_data
-
 
 
 # TERM BASED METHOD
