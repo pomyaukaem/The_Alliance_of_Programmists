@@ -331,8 +331,7 @@ main_results = main_sentencizer(final_paragraphs)
 
 
 # POSITION METNOD
-#dic - прототипический датафрейм на вход с двумя столбцами: предложениями и их статусом,
-#ufo - список из очков, которые набрали предложения
+
 def position_method(panda_main_res):
 #ищем индексы первого, второго и последнего заголовков статьи
     headcount = 0
