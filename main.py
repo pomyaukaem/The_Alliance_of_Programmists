@@ -534,8 +534,8 @@ for i in range(len(main_results.index)):
   else:
       if cm != 0: #если cue words method дал баллы, в итоге получим сумму баллов за все методы
           total.append(tm + pm + sm + cm)
-      else: #sorry not sorry предложения набравшие 0 по cue words и 0 по 2+ остальным методам тоже получат 0 в итоге
-          if ((tm == pm or tm == sm) and tm == 0) or ((pm == tm or pm == sm) and pm == 0) or ((sm == pm or sm == tm) and sm == 0): #выглядит не оч лаконично но должно работать!
+      else: #предложения, набравшие 0 по cue words и 0 по 2+ остальным методам, тоже получат 0 в итоге
+          if ((tm == pm or tm == sm) and tm == 0) or ((pm == tm or pm == sm) and pm == 0) or ((sm == pm or sm == tm) and sm == 0):
               total.append(0)
           else:
               total.append(tm + pm + sm + cm)
